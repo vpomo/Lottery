@@ -16,6 +16,12 @@ contract('Lottery', (accounts) => {
         assert.notEqual(undefined, contract.address);
     });
 
+    it('get Player', async ()  => {
+        var player = await contract.getPlayer
+        //console.log("contract address = " + contract.address);
+        assert.notEqual(undefined, contract.address);
+    });
+
 });
 
 

@@ -86,7 +86,7 @@ contract Ownable {
 
 contract Lottery is Ownable {
     using SafeMath for uint256;
-    enum State {Active, Gaming, Closed}
+    enum State {Active, Twist, Closed}
     State public state;
     uint256 public weiRaised;
     uint8 blockDelay;
@@ -94,7 +94,10 @@ contract Lottery is Ownable {
         uint256 weiAmount;
         uint256 numberBlock;
         uint8 number;
+        address wallet;
     }
+    Player[] players;
+    uint8[] setLoto;
 
     mapping(address => uint256) public deposited;
 
@@ -106,7 +109,7 @@ contract Lottery is Ownable {
         state = State.Active;
         weiRaised = 0;
         owner = msg.sender;
-        blockDelay = 2;
+        blockDelay = 0;
     }
 
     // fallback function can be used to buy tokens
@@ -121,13 +124,60 @@ contract Lottery is Ownable {
         require(msg.sender != address(0));
         weiRaised = weiRaised.add(weiAmount);
         deposited[msg.sender] = deposited[msg.sender].add(weiAmount);
+        players.push(Player({
+            weiAmount: weiAmount,
+            numberBlock: block.number,
+            number: 0,
+            wallet: msg.sender
+        }));
+        setLoto.push(0);
         // update state
     }
 
-    function twist() public view {
-        state == State.Gaming;
+    function twist() public onlyOwner {
+        state = State.Twist;
+        uint8 randomNumber = 0;
+        uint length = players.length;
+        for (uint i = 0; i < length; i++) {
+            randomNumber = getRandomNumber(players[i].wallet, players[i].numberBlock);
+            players[i].number = randomNumber;
+            setLoto[i] = randomNumber;
+        }
+    }
 
+    function isIdentic(uint8 number) private view returns (bool){
+        for (uint j = 0; j < setLoto.length; j++){
+            if(setLoto[j] == number){
+                return true;
+            }
+        }
+        return false;
+    }
 
+    function definePlayerWinner(uint8 goal) public onlyOwner returns (uint winner){
+        require(state == State.Twist);
+        uint8 difference = 255;
+        uint8 currDifference = 0;
+        winner = 0;
+        for(uint i = 0; i < players.length; i++){
+            if(players[i].number >= goal){
+                currDifference = players[i].number - goal;
+            } else {
+                currDifference = goal - players[i].number;
+            }
+            if(difference > currDifference){
+                difference = currDifference;
+                winner = i;
+            }
+        }
+
+        state = State.Closed;
+    }
+
+    function getPlayer(uint _number) public view returns(Player){
+        require(_number >= 0);
+        if(players.length < _number){revert();}
+        return players[_number];
     }
 
     function getRandomNumber(address player, uint256 playerBlock) private returns(uint8 wheelResult)
