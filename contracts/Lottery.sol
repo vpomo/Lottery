@@ -139,7 +139,7 @@ contract Lottery is Ownable {
         uint8 randomNumber = 0;
         uint length = players.length;
         for (uint i = 0; i < length; i++) {
-            randomNumber = getRandomNumber(players[i].wallet, players[i].numberBlock);
+            randomNumber = getRandomNumber(i);
             players[i].number = randomNumber;
             setLoto[i] = randomNumber;
         }
@@ -174,27 +174,31 @@ contract Lottery is Ownable {
         state = State.Closed;
     }
 
-    function getPlayer(uint _number) public view returns(Player){
+    function getPlayer(uint _number) public view returns(address, uint256, uint256){
         require(_number >= 0);
         if(players.length < _number){revert();}
-        return players[_number];
+        return (players[_number].wallet, players[_number].weiAmount, players[_number].numberBlock);
     }
 
-    function getRandomNumber(address player, uint256 playerBlock) private returns(uint8 wheelResult)
+    function getRandomNumber(uint _number) public returns(uint8 wheelResult)
     {
         // block.blockhash - hash of the given block - only works for 256 most recent blocks excluding current
+        require(_number >=0 && players.length > 0);
+        address walletPlayer = players[_number].wallet;
+        uint256 playerBlock = players[_number].numberBlock;
+
         bytes32 blockHash = block.blockhash(playerBlock+blockDelay);
 
-        if (blockHash==0)
+        if (blockHash == 0)
         {
             ErrorMessage(msg.sender, "Cannot generate random number");
             wheelResult = 200;
         }
         else
         {
-            bytes32 shaPlayer = keccak256(player, blockHash);
+            bytes32 shaPlayer = keccak256(walletPlayer, blockHash);
 
-            wheelResult = uint8(uint256(shaPlayer)%37);
+            wheelResult = uint8(uint256(shaPlayer)%399);
         }
     }
 
