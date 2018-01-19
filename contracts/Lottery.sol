@@ -154,30 +154,30 @@ contract Lottery is Ownable {
         return false;
     }
 
-    function definePlayerWinner(uint8 goal) public onlyOwner returns (uint winner){
+    function definePlayerWinner() public onlyOwner returns (uint winner, uint256 amountWinner){
         require(state == State.Twist);
-        uint8 difference = 255;
-        uint8 currDifference = 0;
+        uint8 winningCount = 0;
         winner = 0;
         for(uint i = 0; i < players.length; i++){
-            if(players[i].number >= goal){
-                currDifference = players[i].number - goal;
-            } else {
-                currDifference = goal - players[i].number;
-            }
-            if(difference > currDifference){
-                difference = currDifference;
+            if(players[i].number > winningCount){
+                winningCount = players[i].number;
                 winner = i;
             }
         }
 
+        amountWinner = weiRaised.div(10).mul(8);
+        players[winner].wallet.transfer(amountWinner);
+        owner.transfer(this.balance);
+        weiRaised = 0;
+        delete players;
         state = State.Closed;
     }
 
-    function getPlayer(uint _number) public view returns(address, uint256, uint256){
+    function getPlayer(uint _number) public view returns(address, uint256, uint256, uint8){
         require(_number >= 0);
         if(players.length < _number){revert();}
-        return (players[_number].wallet, players[_number].weiAmount, players[_number].numberBlock);
+        return (players[_number].wallet, players[_number].weiAmount,
+            players[_number].numberBlock,players[_number].number);
     }
 
     function getRandomNumber(uint _number) public returns(uint8 wheelResult)
