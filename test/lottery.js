@@ -5,7 +5,8 @@ contract('Lottery', (accounts) => {
     var account_owner = accounts[0];
     var account_one = accounts[1];
     var account_two = accounts[2];
-    var sendWei = 10;
+    var account_three = accounts[3];
+    var sendWei = 210;
 
     it('should deployed contract', async ()  => {
         assert.equal(undefined, contract);
@@ -34,6 +35,31 @@ contract('Lottery', (accounts) => {
         var randomNumber = await contract.getRandomNumber.call(0);
         assert.notEqual(randomNumber, player[3]);
     });
+
+    it('test twist', async ()  => {
+        await contract.newRaund({from:account_owner});
+
+        await contract.buyTicket({from:account_one, value:sendWei});
+        var player_one = await contract.getPlayer.call(0);
+        assert.equal(0,player_one[3]);
+        await contract.buyTicket({from:account_two, value:sendWei});
+        var player_two = await contract.getPlayer.call(1);
+        assert.equal(0,player_two[3]);
+        await contract.buyTicket({from:account_three, value:sendWei});
+        var player_three = await contract.getPlayer.call(2);
+        assert.equal(0,player_three[3]);
+
+        var winner = await contract.twist.call({from:account_owner});
+
+        player_one = await contract.getPlayer.call(0);
+        //assert.notEqual(0,player_one[3]);
+
+        player_two = await contract.getPlayer.call(1);
+        player_three = await contract.getPlayer.call(2);
+
+        console.log("winner = " + winner[1] + " : " + winner[2] + " : " + winner[3]);
+    });
+
 
 });
 

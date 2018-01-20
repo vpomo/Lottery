@@ -89,7 +89,8 @@ contract Lottery is Ownable {
     enum State {Active, Twist, Closed}
     State public state;
     uint256 public weiRaised;
-    uint8 blockDelay;
+    uint256 minimumWei = 200;
+    uint8 blockDelay = 2;
     struct Player {
         uint256 weiAmount;
         uint256 numberBlock;
@@ -97,11 +98,11 @@ contract Lottery is Ownable {
         address wallet;
     }
     Player[] players;
-    uint8[] setLoto;
 
     mapping(address => uint256) public deposited;
 
-    event Closed();
+    event PlayerAdded(address indexed player, uint256 amount);
+    event Winner(uint sequenceNumber, address indexed wallet, uint8 number, uint256 amount);
     event ErrorMessage(address indexed sender, string textError);
 
     function Lottery() public
@@ -120,6 +121,7 @@ contract Lottery is Ownable {
     // low level token purchase function
     function buyTicket() public payable {
         require(state == State.Active);
+        require(msg.value >= minimumWei);
         uint256 weiAmount = msg.value;
         require(msg.sender != address(0));
         weiRaised = weiRaised.add(weiAmount);
@@ -130,31 +132,27 @@ contract Lottery is Ownable {
             number: 0,
             wallet: msg.sender
         }));
-        setLoto.push(0);
+        PlayerAdded(msg.sender, msg.value);
         // update state
     }
 
-    function twist() public onlyOwner {
+    function twist() public onlyOwner returns(uint winner, address walletWinner,
+                                uint8 winnerNumber, uint256 amountWinner){
+        require(state == State.Active);
         state = State.Twist;
-        uint8 randomNumber = 0;
         uint length = players.length;
         for (uint i = 0; i < length; i++) {
-            randomNumber = getRandomNumber(i);
-            players[i].number = randomNumber;
-            setLoto[i] = randomNumber;
+            getRandomNumber(i);
+            getRandomNumber(i);
+            getRandomNumber(i);
         }
+        (winner, amountWinner) = defineWinner();
+        walletWinner = players[winner].wallet;
+        winnerNumber = players[winner].number;
+        Winner(winner, players[winner].wallet, players[winner].number, amountWinner);
     }
 
-    function isIdentic(uint8 number) private view returns (bool){
-        for (uint j = 0; j < setLoto.length; j++){
-            if(setLoto[j] == number){
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function definePlayerWinner() public onlyOwner returns (uint winner, uint256 amountWinner){
+    function defineWinner() internal onlyOwner returns (uint winner, uint256 amountWinner){
         require(state == State.Twist);
         uint8 winningCount = 0;
         winner = 0;
@@ -164,20 +162,26 @@ contract Lottery is Ownable {
                 winner = i;
             }
         }
-
         amountWinner = weiRaised.div(10).mul(8);
         players[winner].wallet.transfer(amountWinner);
         owner.transfer(this.balance);
-        weiRaised = 0;
-        delete players;
         state = State.Closed;
     }
 
-    function getPlayer(uint _number) public view returns(address, uint256, uint256, uint8){
+    function getPlayer(uint _number) public view returns(address wallet, uint256 weiAmount,
+                    uint256 numberBlock, uint8 number){
         require(_number >= 0);
         if(players.length < _number){revert();}
-        return (players[_number].wallet, players[_number].weiAmount,
-            players[_number].numberBlock,players[_number].number);
+        wallet = players[_number].wallet;
+        weiAmount = players[_number].weiAmount;
+        numberBlock = players[_number].numberBlock;
+        number = players[_number].number;
+    }
+
+    function newRaund() public onlyOwner{
+        state = State.Active;
+        weiRaised = 0;
+        delete players;
     }
 
     function getRandomNumber(uint _number) public returns(uint8 wheelResult)
@@ -187,12 +191,12 @@ contract Lottery is Ownable {
         address walletPlayer = players[_number].wallet;
         uint256 playerBlock = players[_number].numberBlock;
 
-        bytes32 blockHash = block.blockhash(playerBlock+blockDelay);
+        bytes32 blockHash = block.blockhash(playerBlock + blockDelay);
 
         if (blockHash == 0)
         {
             ErrorMessage(msg.sender, "Cannot generate random number");
-            wheelResult = 200;
+            wheelResult = 1;
         }
         else
         {
@@ -200,10 +204,10 @@ contract Lottery is Ownable {
 
             wheelResult = uint8(uint256(shaPlayer)%399);
         }
+        players[_number].number = wheelResult;
     }
 
     function remove() public onlyOwner {
-        state = State.Closed;
         selfdestruct(owner);
     }
 
